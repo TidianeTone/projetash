@@ -84,7 +84,7 @@ const FOES = {
 };
 const BOSSES = {
   gardien:    {name:'Le Gardien',     sub:'veille sur la Casse',      hp:115, r:40, color:'#ff3d5a', phases:[.5],      script:gardien,    fer:6,  sides:8},
-  concasseur: {name:'Le Concasseur',  sub:'broie tout ce qui bouge',  hp:125, r:42, color:'#ff7a3d', phases:[.5],      script:concasseur, fer:6,  sides:5},
+  concasseur: {name:'Le Concasseur',  sub:'broie tout ce qui bouge',  hp:110, r:42, color:'#ff7a3d', phases:[.5],      script:concasseur, fer:6,  sides:5},
   ruche:      {name:'La Ruche',       sub:'reine de la Fonderie',     hp:190, r:44, color:'#ffb347', phases:[.5],      script:ruche,      fer:10, sides:6},
   coulee:     {name:'La Coulée',      sub:'le métal en fusion',       hp:200, r:46, color:'#ff5a1f', phases:[.5],      script:coulee,     fer:10, sides:7},
   zbeul:      {name:'Le Grand Zbeul', sub:'ce qui reste du bordel',   hp:420, r:54, color:'#d93dff', phases:[.66,.33], script:zbeulB,     fer:20, sides:12},
@@ -93,16 +93,21 @@ const BOSSES = {
 const FLOORS = [
   {name:'Hangar', pal:['#120c1a','#1f1529','#3a2548']},
   {name:'La Casse',      rooms:9,  budget:6,  hp:1,    bosses:['gardien','concasseur'], pal:['#120c1a','#1f1529','#3a2548'], pool:{grunt:4, spitter:3, essaim:2, tourelle:1, mortier:2, carcasse:2}},
-  {name:'La Fonderie',   rooms:10, budget:9,  hp:1.35, bosses:['ruche','coulee'],       pal:['#170b0d','#2a1316','#5a2a2a'], pool:{grunt:2, spitter:2, essaim:2, charger:2, kamikaze:2, bouclier:2, tourelle:1, lave:3, enclume:2}},
-  {name:'Le Cœur du Zbeul', rooms:11, budget:12, hp:1.7, bosses:['zbeul','jumeaux'],  pal:['#0b0a1a','#17143a','#2f2a6a'], pool:{spitter:2, essaim:2, charger:2, kamikaze:2, bouclier:2, sniper:2, tourelle:1, teleporteur:3, orbiteur:2}},
+  {name:'La Fonderie',   rooms:10, budget:9,  hp:1.5,  bosses:['ruche','coulee'],       pal:['#170b0d','#2a1316','#5a2a2a'], pool:{grunt:2, spitter:2, essaim:2, charger:2, kamikaze:2, bouclier:2, tourelle:1, lave:3, enclume:2}},
+  {name:'Le Cœur du Zbeul', rooms:11, budget:12, hp:2,   bosses:['zbeul','jumeaux'],  pal:['#0b0a1a','#17143a','#2f2a6a'], pool:{spitter:2, essaim:2, charger:2, kamikaze:2, bouclier:2, sniper:2, tourelle:1, teleporteur:3, orbiteur:2}},
 ];
 // Ce qu'on achète au hangar avec la ferraille (garde entre les runs).
 const UNLOCKS = [
   {id:'mod:echo', price:4}, {id:'mod:chaine', price:5}, {id:'gun:rail', price:6}, {id:'mod:frag', price:6},
   {id:'mod:boomerang', price:5}, {id:'gun:roquette', price:9}, {id:'mod:satellite', price:8}, {id:'gun:essaim', price:10}, {id:'mod:jumelle', price:15},
 ];
+// Pacte de chaleur (le Pact of Punishment de Hades) : chaque niveau ajoute la contrainte suivante, +25 % de ferraille par niveau.
+const HEAT = ['Ennemis +25 % PV', 'Balles ennemies +15 % vitesse', 'Boss +30 % PV', '−1 cœur max', 'Récompenses de salle deux fois plus rares',
+  '3 élites par étage', '+10 % d\'ennemis possédés', 'Plus de cœurs en boutique'];
+const heat = n => (meta.heat||0) >= n;
+const GRAZE = 25; // frôlements pour remplir la jauge de focus
 const RAR = [{n:'C', c:'#b8a8c8'}, {n:'B', c:'#6fa8ff'}, {n:'A', c:'#d08cff'}, {n:'S', c:'#ffd27a'}];
-const PRICE = {mod:[12,18,28,40], heart:8, key:10, ammo:8};
+const PRICE = {mod:[18,26,38,55], heart:10, key:12, ammo:10};
 const LAYOUTS = [ // obstacles [x,y,l,h] dans l'arène 1280×720, couloirs de portes laissés libres
   [],
   [[360,210,60,60],[860,210,60,60],[360,450,60,60],[860,450,60,60]],
@@ -123,6 +128,7 @@ const T = {
   dry:'À sec : retour au', reload:'RECHARGE', empty:'VIDE', locked:'verrouillé', selected:'sélectionné', buy:'acheter',
   trap:'Descendre', syn:'SYNERGIE', curse:'Malédiction', possessed:'possédés', kills:'Ennemis', floorN:'Étage',
   noKey:'Il faut une clé', noShells:'Pas assez de douilles', noFer:'Pas assez de ferraille', unlocked:'Débloqué', shop:'Boutique',
+  pact:'Pacte', pactLocked:'Pacte : bats le boss final pour l\'ouvrir', heatN:'Chaleur', reinforce:'Renforts', focus:'FOCUS', combo:'combo',
   elite:'Élite', eliteDown:'Élite vaincue', secret:'Passage secret', defi:'DÉFI', defiDo:'Défi : survivre 30 s → coffre A', defiWin:'Défi réussi',
   altarBlood:'Autel du sang : −1 cœur max → module A', altarCurse:'Autel maudit : +2 malédiction → module B + clé', fury:'Fureur',
   heart:'Cœur', key:'Clé', ammo:'Munitions', chest:'Coffre', open:'ouvrir', take:'prendre', dummy:'Mannequin',
@@ -144,7 +150,7 @@ const rnd = () => { rs = rs+0x6D2B79F5|0; let t = Math.imul(rs^rs>>>15, 1|rs); t
 const pickW = obj => { let s = 0; for(const k in obj) s += obj[k]; let x = rnd()*s; for(const k in obj) if((x -= obj[k]) < 0) return k; return Object.keys(obj)[0]; };
 
 const META_KEY = 'zbeul.meta.v2';
-const meta = {fer:0, ships:['guepe'], unl:[], ship:'guepe', runs:0, best:0};
+const meta = {fer:0, ships:['guepe'], unl:[], ship:'guepe', runs:0, best:0, wins:0, heat:0, heatMax:0};
 try { Object.assign(meta, JSON.parse(localStorage.getItem(META_KEY)||'{}')); } catch(e){}
 const save = () => { try { localStorage.setItem(META_KEY, JSON.stringify(meta)); } catch(e){} };
 
@@ -226,7 +232,7 @@ const flush = () => { inp.dash = inp.start = inp.use = inp.reload = false; inp.n
 
 // ── État ────────────────────────────────────────────────────────────────
 let state = 'title', P, floor = 0, map = null, room = null, rects = [], items = [];
-let foes = [], pb = [], eb = [], parts = [], nums = [], ghosts = [], arcs = [], warns = [], lobs = [], pools = [];
+let wrecks = [], foes = [], pb = [], eb = [], parts = [], nums = [], ghosts = [], arcs = [], warns = [], lobs = [], pools = [];
 let stop = 0, trauma = 0, redFlash = 0, whiteFlash = 0, deathT = 0, clock = 0, fade = 0, runs = 0;
 let banner = null, choice = null, nearby = null, summary = null, after = null, intro = null;
 
@@ -241,7 +247,7 @@ function newPlayer(){
   P = {x:W/2, y:H-M-60, vx:0, vy:0, r:13, a:-Math.PI/2, hp:sh.hp, max:sh.hp, ship:meta.ship,
     dashT:0, dashCd:0, dx:0, dy:0, inv:0, fireCd:0, reloadT:0, dead:false, recoil:0, crit:0,
     gun:{id:sh.chassis, mag:GUNS[sh.chassis].mag, ammo:Infinity}, mods:[], syn:[], st:null,
-    keys:1, shells:0, fer:0, kills:0, curseX:0, siphonN:0, hitInRoom:false, droneA:0, droneCd:0, runT:0, pity:0};
+    keys:1, shells:0, fer:0, kills:0, curseX:0, chain:0, hopW:0, grace:0, boost:0, focus:0, focusT:0, combo:0, comboT:0, siphonN:0, hitInRoom:false, droneA:0, droneCd:0, runT:0, pity:0};
   calcStats();
 }
 // Les stats sont recalculées à chaque changement d'arme ou de module, jamais à chaque image.
@@ -332,13 +338,12 @@ function genFloor(n){
     if(c.type==='shrine') c.items.push({k:'altar', kind:'sang', x:W/2-170, y:H/2}, {k:'altar', kind:'maudit', x:W/2+170, y:H/2});
     if(c.type==='defi') c.items.push({k:'stele', x:W/2, y:H/2});
     if(c.type==='shop'){
-      const offer = [{k:'mod', id:rollMod(rollRar())}, {k:'mod', id:null}, {k:'heart'}, {k:'key'}, {k:'ammo'}];
-      offer[1].id = rollMod(rollRar(1), [offer[0].id]);
-      offer.forEach((o, i) => { if(o.k==='mod' && !o.id) return;
-        o.price = o.k==='mod' ? PRICE.mod[MODS[o.id].rar] : PRICE[o.k]; o.x = 340+i*150; o.y = H/2+40; c.items.push(o); });
+      const offer = [{k:'mod', id:rollMod(rollRar(1))}, {k:'ammo'}, heat(8) ? {k:'shell'} : {k:'heart'}, {k:'key'}];
+      offer.forEach((o, i) => { if((o.k==='mod' && !o.id) || o.k==='shell') return;
+        o.price = o.k==='mod' ? PRICE.mod[MODS[o.id].rar] : PRICE[o.k]; o.x = 400+i*160; o.y = H/2+40; c.items.push(o); });
     }
   }
-  const fights = all.filter(c => c.type==='fight'); if(fights.length) fights[rnd()*fights.length|0].elite = true;
+  const fights = all.filter(c => c.type==='fight').sort(() => rnd()-.5); fights.slice(0, heat(6) ? 3 : 1).forEach(c => c.elite = true);
   // salle secrète : collée à une salle ordinaire, derrière un mur fissuré qu'on casse au tir
   const hosts = all.filter(c => c.type!=='boss' && c.type!=='start').sort(() => rnd()-.5);
   for(const h of hosts){
@@ -360,6 +365,7 @@ function hubRoom(){
   Object.keys(SHIPS).forEach((id, i) => r.items.push({k:'kiosk', ship:id, x:200, y:210+i*150}));
   const locked = UNLOCKS.filter(u => !meta.unl.includes(u.id)).slice(0, 3);
   locked.forEach((u, i) => r.items.push({k:'unlock', u, x:1080, y:210+i*150}));
+  r.items.push({k:'pact', x:W/2, y:540});
   return r;
 }
 
@@ -369,19 +375,21 @@ function goHub(){
   enterRoom(hubRoom(), null);
   foes.push(mkFoe('dummy', W/2, 300, 0));
 }
-function startRun(){ rs = seed + runs++; floor = 0; P.runT = 0; nextFloor(); }
+function startRun(){ rs = seed + runs++; floor = 0; P.runT = 0; if(heat(4)){ P.max -= 2; P.hp = Math.min(P.hp, P.max); } nextFloor(); }
 function nextFloor(){
   floor++; map = genFloor(floor); P.pity = 0;
   enterRoom(map.get(0,0), null);
   say(`${tr('floorN')} ${floor}`, FLOORS[floor].name, '#ffd27a', 2.5);
 }
 function endRun(won){
+  const h = meta.heat||0; P.fer = Math.round(P.fer*(1+.25*h));
+  if(won){ meta.wins++; meta.heatMax = Math.min(HEAT.length, Math.max(meta.heatMax, h+1)); }
   meta.fer += P.fer; meta.runs++; meta.best = Math.max(meta.best, won ? 4 : floor); save();
-  summary = {won, floor, time:P.runT, kills:P.kills, fer:P.fer, mods:P.mods.slice(), seed:rs};
+  summary = {won, floor, time:P.runT, kills:P.kills, fer:P.fer, mods:P.mods.slice(), seed:rs, heat:h};
   state = 'end'; summary.at = clock;
 }
 function enterRoom(rm, from){
-  room = rm; rects = rm.rects; items = rm.items; foes = []; pb = []; eb = []; warns = []; arcs = []; lobs = []; pools = [];
+  room = rm; rects = rm.rects; items = rm.items; wrecks = []; foes = []; pb = []; eb = []; warns = []; arcs = []; lobs = []; pools = [];
   rm.seen = true; fade = 1; P.hitInRoom = false; P.vx = P.vy = 0;
   const pos = {t:[W/2, H-M-40], b:[W/2, M+40], l:[W-M-40, H/2], r:[M+40, H/2]}[from] || [W/2, H-M-70];
   [P.x, P.y] = pos;
@@ -391,7 +399,7 @@ function enterRoom(rm, from){
     const id = map.boss, B = BOSSES[id], t0 = rnd()*6;
     for(let side=0; side<(B.twin ? 2 : 1); side++){
       const f = mkFoe('boss', B.twin ? W/2+(side ? 260 : -260) : W/2, 210, .3);
-      Object.assign(f, {b:id, side, t:t0, r:B.r, hp:B.hp, max:B.hp, hpShow:B.hp, color:side ? B.twin : B.color, acc:0, wait:0});
+      const bh = B.hp*(heat(3) ? 1.3 : 1); Object.assign(f, {b:id, side, t:t0, r:B.r, hp:bh, max:bh, hpShow:bh, color:side ? B.twin : B.color, acc:0, wait:0});
       f.gen = B.script(f); foes.push(f);
     }
     intro = {t:2, max:2, B}; sfx(80, 40, 1.2, 'sawtooth', .12);
@@ -417,8 +425,8 @@ function spawnFoe(k, pos, delay){
   else do { x = M+50+rnd()*(W-2*M-100); y = M+50+rnd()*(H-2*M-100); }
     while((Math.hypot(x-P.x, y-P.y) < 300 || inRect(x, y, 26)) && ++tries < 60);
   const f = mkFoe(k, x, y, delay), mult = FLOORS[floor].hp || 1;
-  f.hp = f.max = f.hpShow = FOES[k].hp*mult;
-  if(rnd() < Math.min(.5, P.st.curse*.04)){ f.poss = true; f.hp = f.max = f.hpShow = f.hp*2.5; }
+  f.hp = f.max = f.hpShow = FOES[k].hp*mult*(heat(1) ? 1.25 : 1);
+  if(rnd() < Math.min(.6, P.st.curse*.04+(heat(7) ? .1 : 0))){ f.poss = true; f.hp = f.max = f.hpShow = f.hp*2.5; }
   foes.push(f);
 }
 const freeSpot = () => [[W/2,H/2],[W/2,H/2+150],[W/2,H/2-150],[W/2-250,H/2],[W/2+250,H/2]].find(([x,y]) => !inRect(x, y, 40)) || [P.x, P.y];
@@ -427,12 +435,12 @@ function clearRoom(){
   // pitié des coffres (EtG) : ~1 % de base, +9,8 % par salle vide, remise à zéro quand ça tombe
   if(rnd() < .01 + P.pity){
     P.pity = 0;
-    const opts = {key:2, heart:P.hp < P.max ? 3 : 0, ammo:P.gun.ammo!==Infinity ? 3 : 0, shells:3, chest:1};
+    const opts = {key:2, heart:P.hp < P.max ? 3 : 0, ammo:P.gun.ammo!==Infinity ? 3 : 0, shells:3};
     const k = pickW(opts), [x, y] = freeSpot();
     if(k==='shells') for(let i=0;i<6;i++) items.push({k:'shell', v:1, x:x+(rnd()-.5)*60, y:y+(rnd()-.5)*60});
     else items.push(k==='chest' ? {k:'chest', rar:rollRar(), x, y} : {k, x, y});
     burst(x, y, 30, '#ffd27a');
-  } else P.pity = Math.min(.8, P.pity+.07);
+  } else P.pity = Math.min(.8, P.pity+(heat(5) ? .035 : .07));
 }
 function bossDown(f){
   const B = BOSSES[f.b];
@@ -465,7 +473,8 @@ function burst(x, y, n, c, sp=420){
   for(let i=0;i<n;i++){ const a = Math.random()*TAU, v = 60+Math.random()*sp, l = .25+Math.random()*.5;
     parts.push({x, y, vx:Math.cos(a)*v, vy:Math.sin(a)*v, life:l, max:l, c, s:2+Math.random()*4}); }
 }
-const shootFrom = (x, y, a, spd, o={}) => eb.push({x, y, vx:Math.cos(a)*spd, vy:Math.sin(a)*spd, r:7, t:0, ...o});
+const comboMult = () => 1+Math.min(2, Math.floor(P.combo/6)*.5);
+const shootFrom = (x, y, a, spd, o={}) => (spd *= heat(2) ? 1.15 : 1, eb.push({x, y, vx:Math.cos(a)*spd, vy:Math.sin(a)*spd, r:7, t:0, ...o}));
 const inRect = (x, y, pad=0) => rects.some(q => x > q.x-pad && x < q.x+q.w+pad && y > q.y-pad && y < q.y+q.h+pad);
 function pushOut(o){
   let hit = false;
@@ -500,8 +509,8 @@ function updHazards(dt){
   pools = pools.filter(q => q.life > 0);
 }
 function hurt(){
-  if(P.dead || P.dashT > 0 || P.inv > 0) return;
-  P.hp--; P.inv = 1.1; P.hitInRoom = true; stop = .14; addShake(.7); redFlash = .6;
+  if(P.dead || P.dashT > 0 || P.inv > 0 || P.grace > 0) return;
+  P.combo = 0; P.hp--; P.inv = 1.1; P.hitInRoom = true; stop = .14; addShake(.7); redFlash = .6;
   sfx(220, 50, .35, 'sawtooth', .12); burst(P.x, P.y, 24, SHIPS[P.ship].color);
   eb = eb.filter(b => Math.hypot(b.x-P.x, b.y-P.y) > 130); // ponytail: purge de grâce autour du joueur
   if(P.hp <= 0){ P.dead = true; deathT = 1.4; burst(P.x, P.y, 70, SHIPS[P.ship].color, 600); addShake(1.2); sfx(400, 30, 1, 'sawtooth', .12, true); }
@@ -530,7 +539,11 @@ function kill(f){
   if(f.k==='lave') addPool(f.x, f.y, 40, 2.5);
   if(f.k==='orbiteur') for(let i=0;i<3;i++) shootFrom(f.x+Math.cos(f.rot+i*TAU/3)*36, f.y+Math.sin(f.rot+i*TAU/3)*36, f.rot+i*TAU/3, 230);
   if(f.elite){ items.push({k:'key', x:f.x, y:f.y}); for(let i=0;i<5;i++) items.push({k:'shell', v:1, x:f.x+(rnd()-.5)*50, y:f.y+(rnd()-.5)*50}); say(tr('eliteDown'), '', '#ffd27a', 1.4); }
-  const drops = f.poss ? 3 : rnd() < (f.k==='essaim' ? .25 : .55) ? 1 : 0;
+  // combo : des kills à moins de 2,5 s font monter le multiplicateur des douilles (jetons × mult de Balatro)
+  P.combo++; P.comboT = 2.5;
+  const base = (f.poss ? 3 : rnd() < (f.k==='essaim' ? .25 : .55) ? 1 : 0)*comboMult(), drops = Math.floor(base) + (rnd() < base%1 ? 1 : 0);
+  // épave : l'ennemi tombé reste 4 s comme couverture qui arrête les balles des deux camps (les cadavres de Darkest Dungeon)
+  if(!['essaim','debris','kamikaze','dummy'].includes(f.k)) wrecks.push({x:f.x, y:f.y, r:f.r*.95, hp:4, life:4, sides:5+(f.r|0)%3, c:f.color});
   for(let i=0;i<drops;i++) items.push({k:'shell', v:1, x:f.x+(rnd()-.5)*20, y:f.y+(rnd()-.5)*20});
   if(P.st.siphon && ++P.siphonN >= 20){ P.siphonN = 0; if(P.hp < P.max){ P.hp++; nums.push({x:P.x, y:P.y-24, v:'+1 ♥', life:1, heal:true}); } }
 }
@@ -584,8 +597,8 @@ function dryGun(){
 function fireGun(){
   const s = P.st, g = P.gun;
   if(g.mag <= 0){ startReload(); return; }
-  g.mag--; P.fireCd = s.rate; P.recoil = 1;
-  const last = g.mag===0 && s.last > 1, mul = (P.crit > 0 ? 2 : 1)*(last ? s.last : 1);
+  g.mag--; P.fireCd = s.rate*(P.focusT > 0 ? .75 : 1); P.recoil = 1;
+  const last = g.mag===0 && s.last > 1, mul = (P.crit > 0 ? 2 : 1)*(last ? s.last : 1)*(P.focusT > 0 ? 1.5 : 1);
   for(let i=0;i<s.n;i++){
     const a = P.a + (s.n > 1 ? (i/(s.n-1)-.5)*s.arc : 0) + (rnd()-.5)*s.jit;
     spawnPB(P.x+Math.cos(a)*20, P.y+Math.sin(a)*20, a, mul, last ? {r:s.r*1.8, big:true} : {});
@@ -632,11 +645,16 @@ function update(dt){
     const alive = foes.length, lastWave = room.wave >= room.waves.length-1;
     if(!lastWave && alive <= 1){ room.wave++; spawnWave(); }
     else if(lastWave && !alive) clearRoom();
+    else if(lastWave && alive <= 2){ if((room.stallT = (room.stallT||0)+dt) > 8){ room.stallT = 0;
+      const cheap = Object.fromEntries(Object.entries(FLOORS[floor].pool).filter(([k]) => FOES[k].cost <= 2 && !FOES[k].group));
+      for(let i=0;i<2;i++) spawnFoe(pickW(cheap), null, .6+i*.2); say(tr('reinforce'), '', '#ff5a6e', 1.2); } }
+    else room.stallT = 0;
   }
   for(const p of parts){ p.x += p.vx*dt; p.y += p.vy*dt; const d = Math.pow(.015, dt); p.vx *= d; p.vy *= d; p.life -= dt; }
   parts = parts.filter(p => p.life > 0);
   for(const n of nums){ n.y -= 50*dt; n.life -= dt; } nums = nums.filter(n => n.life > 0);
   for(const g of ghosts) g.life -= dt; ghosts = ghosts.filter(g => g.life > 0);
+  for(const w of wrecks) w.life -= dt; wrecks = wrecks.filter(w => w.life > 0);
   for(const a of arcs) a.life -= dt; arcs = arcs.filter(a => a.life > 0);
   for(const w of warns) w.life -= dt; warns = warns.filter(w => w.life > 0);
   flush();
@@ -670,23 +688,28 @@ function updPlayer(dt, pad){
   else if(!usingPad) P.a = Math.atan2(mouse.y-P.y, mouse.x-P.x);
   const ml = Math.hypot(mx,my); if(ml > 1){ mx /= ml; my /= ml; }
 
-  P.dashCd -= dt; P.inv -= dt; P.fireCd -= dt; P.crit -= dt; P.recoil = Math.max(0, P.recoil-dt*12);
+  P.dashCd -= dt; P.inv -= dt; P.fireCd -= dt; P.crit -= dt; P.hopW -= dt; P.grace -= dt; P.boost -= dt; P.focusT -= dt;
+  if((P.comboT -= dt) <= 0) P.combo = 0; P.recoil = Math.max(0, P.recoil-dt*12);
   if(P.reloadT > 0 && (P.reloadT -= dt) <= 0){
     const g = P.gun, take = Math.min(P.st.mag-g.mag, g.ammo); g.mag += take; g.ammo -= take; sfx(500, 900, .08, 'square', .04);
   }
   if(inp.reload) startReload();
-  if(inp.dash && P.dashCd <= 0){
+  // relancer dans les 0,15 s après un dash enchaîne (3 max) sans attendre la recharge ; le 3e coûte une recharge plus longue
+  const chainOk = P.hopW > 0 && P.chain < 2;
+  if(inp.dash && (P.dashCd <= 0 || chainOk)){
     [P.dx,P.dy] = ml > .1 ? [mx/ml, my/ml] : [Math.cos(P.a), Math.sin(P.a)];
-    P.dashT = .15; P.dashCd = sh.dashCd;
-    sfx(900, 120, .18, 'sawtooth', .05); burst(P.x, P.y, 8, sh.color, 200);
+    P.chain = chainOk ? P.chain+1 : 0; P.hopW = 0;
+    P.dashT = .15; P.dashCd = sh.dashCd*(P.chain===2 ? 1.3 : 1);
+    sfx(900+P.chain*350, 120, .18, 'sawtooth', .05); burst(P.x, P.y, 8, P.chain ? '#ffd27a' : sh.color, 200);
+    if(P.chain) nums.push({x:P.x, y:P.y-24, v:`×${P.chain+1}`, life:.5, heal:true});
     if(P.st.echo) for(let i=0;i<P.st.echo;i++) spawnPB(P.x, P.y, i*TAU/P.st.echo, .8);
   }
   if(P.dashT > 0){
-    P.dashT -= dt; P.vx = P.dx*980; P.vy = P.dy*980;
-    ghosts.push({x:P.x, y:P.y, a:P.a, life:.22});
-    if(P.dashT <= 0 && P.ship==='spectre') P.crit = 1;
+    P.dashT -= dt; const ds = 980*(1+.1*P.chain); P.vx = P.dx*ds; P.vy = P.dy*ds;
+    ghosts.push({x:P.x, y:P.y, a:P.a, life:.22, gold:P.chain > 0});
+    if(P.dashT <= 0){ P.hopW = P.chain < 2 ? .15 : 0; P.grace = .1; P.boost = .5; if(P.ship==='spectre') P.crit = 1; }
   } else {
-    const k = Math.min(1, dt*14); P.vx += (mx*sh.speed-P.vx)*k; P.vy += (my*sh.speed-P.vy)*k;
+    const k = Math.min(1, dt*14), spd = sh.speed*(P.boost > 0 ? 1+.2*P.chain : 1); P.vx += (mx*spd-P.vx)*k; P.vy += (my*spd-P.vy)*k;
   }
   P.x += P.vx*dt; P.y += P.vy*dt;
   const open = doorsOf(room);
@@ -745,6 +768,9 @@ function updPB(dt){
       if(b.explode) explode(b.px, b.py, b.explode, b.dmg*.8);
       continue;
     }
+    const w = wrecks.find(w => Math.hypot(w.x-b.x, w.y-b.y) < w.r+b.r);
+    if(w && b.pierce < 3 && !b.back){ b.dead = true; burst(b.x, b.y, 3, '#8a7a9c', 140);
+      if((w.hp -= b.dmg) <= 0){ w.life = 0; burst(w.x, w.y, 14, '#8a7a9c', 300); sfx(300, 80, .1, 'square', .04, true); } continue; }
     for(const f of foes){
       if(f.k==='orbiteur' && !f.dead && f.spawn <= 0 && b.pierce < 3 && [0,1,2].some(i => Math.hypot(f.x+Math.cos(f.rot+i*TAU/3)*36-b.x, f.y+Math.sin(f.rot+i*TAU/3)*36-b.y) < 9+b.r)){
         b.dead = true; burst(b.x, b.y, 3, '#ffffff', 160); break; }
@@ -781,7 +807,13 @@ function updEB(dt){
     b.x += b.vx*dt; b.y += b.vy*dt;
     if(b.split && b.t >= b.split.at){ b.dead = true; for(let i=0;i<b.split.n;i++) nb.push({x:b.x, y:b.y, vx:Math.cos(i*TAU/b.split.n)*b.split.spd, vy:Math.sin(i*TAU/b.split.n)*b.split.spd, r:6, t:0}); burst(b.x, b.y, 6, '#ff4d6d', 160); continue; }
     if(b.x < M-10 || b.x > W-M+10 || b.y < M-10 || b.y > H-M+10 || inRect(b.x, b.y)) b.dead = true;
-    else if(!P.dead && Math.hypot(b.x-P.x, b.y-P.y) < P.r-4+b.r && P.dashT <= 0 && P.inv <= 0){ b.dead = true; hurt(); }
+    else if(!P.dead && Math.hypot(b.x-P.x, b.y-P.y) < P.r-4+b.r && P.dashT <= 0 && P.inv <= 0 && P.grace <= 0){ b.dead = true; hurt(); }
+    else if(wrecks.some(w => Math.hypot(w.x-b.x, w.y-b.y) < w.r+b.r)) b.dead = true;
+    // frôlement : une balle qui passe tout près sans dash remplit la jauge de focus (le « presque » d'EtG devient un gain)
+    else if(!b.grazed && !P.dead && P.dashT <= 0 && P.inv <= 0 && Math.hypot(b.x-P.x, b.y-P.y) < P.r+20){
+      b.grazed = true; burst(b.x, b.y, 2, '#ffffff', 90);
+      if(P.focusT <= 0 && ++P.focus >= GRAZE){ P.focus = 0; P.focusT = 5; say(tr('focus'), 'dégâts ×1,5 · cadence +33 %', '#ffd27a', 1.4); sfx(500, 1500, .4, 'triangle', .08); }
+      else sfx(2600, 3200, .03, 'sine', .015); }
   }
   eb = eb.filter(b => !b.dead).concat(nb);
 }
@@ -930,7 +962,7 @@ function* zbeulB(f){
 function* concasseur(f){
   f.still = true;
   while(true){
-    const n = f.phase===1 ? 3 : 4, v = f.phase===1 ? 820 : 1000;
+    const n = f.phase===1 ? 3 : 4, v = f.phase===1 ? 720 : 900;
     for(let k=0;k<n;k++){
       const a = aimOf(f); warns.push({x:f.x, y:f.y, a, life:.55, max:.55}); sfx(150, 500, .5, 'sawtooth', .05); yield 33;
       f.rush = {vx:Math.cos(a)*v, vy:Math.sin(a)*v, tr:0};
@@ -993,7 +1025,7 @@ function updBoss(f, dt){
 }
 
 // ── Objets : butin, coffres, boutique, bornes du hangar ────────────────
-const interactive = it => it.price || ['gun','chest','kiosk','unlock','trap','altar','stele'].includes(it.k);
+const interactive = it => it.price || ['gun','chest','kiosk','unlock','trap','altar','stele','pact'].includes(it.k);
 function updItems(dt){
   for(const it of items){
     if(it.dead || interactive(it)) continue;
@@ -1048,6 +1080,10 @@ function use(it){
       say(`${tr('unlocked')} : ${unlockName(u)}`, unlockDesc(u), '#ffd27a'); burst(it.x, it.y, 30, '#ffd27a'); sfx(400, 1600, .4, 'triangle', .09);
       const r = hubRoom(); room.items = items = r.items; break; }
     case 'trap': nextFloor(); break;
+    case 'pact':
+      if(!meta.heatMax){ say(tr('pactLocked'), '', '#ff5a6e', 1.6); return; }
+      meta.heat = ((meta.heat||0)+1)%(meta.heatMax+1); save(); sfx(200+meta.heat*80, 600, .25, 'sawtooth', .06); burst(it.x, it.y, 20, '#ff6a2a');
+      say(`${tr('heatN')} ${meta.heat}`, meta.heat ? HEAT[meta.heat-1] : 'aucune contrainte', '#ff6a2a', 1.6); break;
     case 'altar': {
       items.splice(items.indexOf(it), 1);
       if(it.kind==='sang'){ P.max = Math.max(2, P.max-2); P.hp = Math.min(P.hp, P.max); redFlash = .6; const id = rollMod(rollRar(2)); if(id) items.push({k:'mod', id, x:it.x, y:it.y}); }
@@ -1072,6 +1108,7 @@ function itemLabel(it){
     case 'stele': return tr('defiDo');
     case 'kiosk': { const s = SHIPS[it.ship]; return meta.ships.includes(it.ship) ? `${s.name}${meta.ship===it.ship ? ' · '+tr('selected') : ''}` : `${s.name} : ${s.price} ${tr('ferraille')}`; }
     case 'unlock': return `${unlockName(it.u)} : ${it.u.price} ${tr('ferraille')}`;
+    case 'pact': return meta.heatMax ? `${tr('pact')} : ${tr('heatN').toLowerCase()} ${meta.heat||0} (max ${meta.heatMax}) · ferraille ×${1+.25*(meta.heat||0)}` : tr('pactLocked');
     case 'trap': return tr('trap');
   }
   return '';
@@ -1151,6 +1188,11 @@ function drawItem(it){
       text(it.kind==='sang' ? '♥' : '☠', x, it.y+7, 14, '#07050b', 'center', 900); break; }
     case 'stele': { cx.fillStyle = '#2a1c33'; cx.strokeStyle = '#ff5a6e'; cx.lineWidth = 3; cx.fillRect(x-16, it.y-34, 32, 54); cx.strokeRect(x-16, it.y-34, 32, 54);
       text('30', x, it.y-8, 16, '#ff5a6e', 'center', 900); break; }
+    case 'pact': { const h = meta.heat||0, on = meta.heatMax > 0;
+      cx.strokeStyle = on ? '#ff6a2a' : '#3a2548'; cx.lineWidth = 3; circle(x, it.y, 30); cx.stroke();
+      if(on){ cx.save(); cx.globalCompositeOperation = 'lighter'; for(let i=0;i<=h;i++){ cx.fillStyle = `rgba(255,${120-i*10},40,.35)`; poly(x, it.y-4-i*2, 10+i*2+Math.sin(clock*8+i)*2, 3, -Math.PI/2); cx.fill(); } cx.restore(); }
+      text(on ? `${h}` : '🔒', x, it.y+2, 18, on ? '#ffffff' : '#6a5a7c', 'center', 900);
+      text(tr('pact'), x, it.y+46, 13, on ? '#ff6a2a' : '#6a5a7c', 'center', 800); break; }
     case 'trap': { cx.fillStyle = '#07050b'; circle(x, it.y, 34); cx.fill(); cx.strokeStyle = '#ffd27a'; cx.lineWidth = 3; cx.setLineDash([8,6]); cx.lineDashOffset = -clock*20; circle(x, it.y, 34); cx.stroke(); cx.setLineDash([]); break; }
     case 'kiosk': { const s = SHIPS[it.ship], ok = meta.ships.includes(it.ship), sel = meta.ship===it.ship;
       cx.strokeStyle = sel ? s.color : '#3a2548'; cx.lineWidth = 3; circle(x, it.y, 40); cx.stroke();
@@ -1248,12 +1290,16 @@ function draw(dt){
     cx.fillStyle = g; circle(q.x, q.y, q.r+Math.sin(clock*7+q.x)*2); cx.fill(); cx.restore(); }
   for(const w of warns){ cx.strokeStyle = `rgba(255,61,90,${.3+.5*(1-w.life/w.max)})`; cx.lineWidth = 2+10*(1-w.life/w.max);
     cx.beginPath(); cx.moveTo(w.x, w.y); cx.lineTo(w.x+Math.cos(w.a)*1600, w.y+Math.sin(w.a)*1600); cx.stroke(); }
+  for(const w of wrecks){ cx.globalAlpha = Math.min(1, w.life)*.9; cx.fillStyle = '#463a52'; cx.strokeStyle = w.c; cx.lineWidth = 3;
+    poly(w.x, w.y, w.r, w.sides, w.x); cx.fill(); cx.stroke(); cx.strokeStyle = '#07050b'; cx.beginPath(); cx.moveTo(w.x-w.r*.5, w.y-w.r*.3); cx.lineTo(w.x+w.r*.1, w.y+w.r*.1); cx.lineTo(w.x+w.r*.4, w.y-w.r*.4); cx.stroke(); cx.globalAlpha = 1; }
   for(const f of foes) drawFoe(f);
 
   // traînée de dash
   const scol = SHIPS[P.ship].color;
-  for(const g of ghosts){ cx.save(); cx.translate(g.x, g.y); cx.rotate(g.a); cx.globalAlpha = g.life/.22*.45; cx.fillStyle = scol; shipPath(P.ship); cx.fill(); cx.restore(); }
+  for(const g of ghosts){ cx.save(); cx.translate(g.x, g.y); cx.rotate(g.a); cx.globalAlpha = g.life/.22*.45; cx.fillStyle = g.gold ? '#ffd27a' : scol; shipPath(P.ship); cx.fill(); cx.restore(); }
 
+  if(!P.dead && P.focusT > 0){ cx.save(); cx.globalCompositeOperation = 'lighter'; cx.fillStyle = `rgba(255,210,122,${.18+Math.sin(clock*12)*.06})`; circle(P.x, P.y, 30); cx.fill(); cx.restore(); }
+  if(!P.dead && P.grace > 0){ cx.strokeStyle = `rgba(255,255,255,${P.grace*6})`; cx.lineWidth = 2; circle(P.x, P.y, 20); cx.stroke(); }
   if(!P.dead && !(P.inv > 0 && Math.sin(clock*40) > 0)){
     cx.save(); cx.translate(P.x, P.y); cx.rotate(P.a); cx.translate(-P.recoil*4, 0);
     cx.fillStyle = P.dashT > 0 ? '#ffffff' : scol; cx.strokeStyle = P.crit > 0 ? '#ffd27a' : '#07050b'; cx.lineWidth = 3;
@@ -1322,7 +1368,17 @@ function drawHUD(){
   text(`🔑 ${P.keys}`, x, 20, 15, '#ffd27a', 'left', 700); x += 52;
   text(`▮ ${P.shells}`, x, 20, 15, '#ffd27a', 'left', 700); x += 58;
   if(floor) text(`⬢ ${P.fer}`, x, 20, 15, '#cfd8ff', 'left', 700), x += 52;
-  if(P.st.curse) text(`☠ ${P.st.curse}`, x, 20, 15, '#c070ff', 'left', 800);
+  if(P.st.curse) text(`☠ ${P.st.curse}`, x, 20, 15, '#c070ff', 'left', 800), x += 46;
+  if(floor && meta.heat) text(`🔥 ${meta.heat}`, x, 20, 15, '#ff6a2a', 'left', 800);
+  if(floor){ // jauge de focus sous les cœurs
+    const fw = 6*24-8, k = P.focusT > 0 ? P.focusT/5 : P.focus/GRAZE;
+    cx.fillStyle = '#2a1c33'; cx.fillRect(M+8, 34, fw, 4); cx.fillStyle = P.focusT > 0 ? '#ffd27a' : '#e6dcff'; cx.fillRect(M+8, 34, fw*k, 4); }
+  if(P.combo >= 3){ // combo façon Balatro : jetons × mult
+    const m = comboMult(), cxp = M+8, cy = 56, a = Math.min(1, P.comboT*2);
+    cx.globalAlpha = a; cx.fillStyle = '#2f6fe0'; cx.beginPath(); cx.roundRect(cxp, cy-11, 44, 22, 4); cx.fill(); text(`${P.combo}`, cxp+22, cy, 14, '#ffffff', 'center', 900);
+    text('×', cxp+52, cy, 14, '#ffffff', 'center', 900);
+    cx.fillStyle = '#e0453a'; cx.beginPath(); cx.roundRect(cxp+60, cy-11, 44, 22, 4); cx.fill(); text(`${m}`, cxp+82, cy, 14, '#ffffff', 'center', 900);
+    cx.fillStyle = '#ffffff55'; cx.fillRect(cxp, cy+14, 104*P.comboT/2.5, 2); cx.globalAlpha = 1; }
   if(floor) text(`${FLOORS[floor].name} · ${fmt(P.runT)}`, W-M-170, 20, 15, '#8a7a9c', 'right', 600);
   // arme
   const g = P.gun, G = GUNS[g.id];
@@ -1402,7 +1458,8 @@ function drawEnd(){
   const bob = Math.sin(clock*3)*6;
   text(tr(s.won ? 'win' : 'dead'), W/2, H/2-120+bob, s.won ? 64 : 96, s.won ? '#ffd27a' : '#ff5a6e', 'center', 900);
   text(`${FLOORS[s.floor].name} · ${tr('time')} ${fmt(s.time)} · ${tr('kills')} ${s.kills}`, W/2, H/2-30, 20, '#ffffff', 'center', 600);
-  text(`+${s.fer} ⬢ ${tr('ferraille')}  (total ${meta.fer})`, W/2, H/2+10, 22, '#cfd8ff', 'center', 800);
+  text(`+${s.fer} ⬢ ${tr('ferraille')}${s.heat ? `  (chaleur ${s.heat} : ×${1+.25*s.heat})` : ''}  · total ${meta.fer}`, W/2, H/2+10, 22, '#cfd8ff', 'center', 800);
+  if(s.won && meta.heatMax) text(`${tr('pact')} : chaleur ${meta.heatMax} débloquée au hangar`, W/2, H/2+88, 16, '#ff6a2a', 'center', 700);
   s.mods.forEach((id, i) => { const m = MODS[id], c = RAR[m.rar].c, mx = W/2+(i-(s.mods.length-1)/2)*34;
     cx.fillStyle = '#1b1226'; cx.strokeStyle = c; cx.lineWidth = 2; cx.beginPath(); cx.roundRect(mx-14, H/2+40, 28, 28, 4); cx.fill(); cx.stroke(); text(m.ab, mx, H/2+55, 11, c, 'center', 800); });
   text(tr('again'), W/2, H/2+120, 24, '#d8c8e8', 'center', 700);
