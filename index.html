@@ -67,7 +67,7 @@ const SYN = [
 const FOES = {
   grunt:    {hp:3,  r:13, speed:170, color:'#ff5a6e', cost:1},
   spitter:  {hp:4,  r:15, speed:85,  color:'#ff8a3d', cost:2, fireCd:1.5, bs:300},
-  essaim:   {hp:1,  r:8,  speed:235, color:'#ffb3c1', cost:2, group:4},
+  essaim:   {hp:1,  r:8,  speed:235, color:'#ff2e63', cost:2, group:4},
   tourelle: {hp:9,  r:17, speed:0,   color:'#c2507a', cost:3, fireCd:1, bs:220},
   charger:  {hp:7,  r:17, speed:60,  color:'#d9477f', cost:3, windup:.6, rush:760, rushTime:.45},
   kamikaze: {hp:3,  r:12, speed:250, color:'#ffd27a', cost:2},
@@ -1019,6 +1019,10 @@ function drawFoe(f){
       cx.fillStyle = f.phase > 1 ? '#ffe08a' : '#ff8a3d'; circle(f.x, f.y, 9+f.phase*2+Math.sin(clock*10)*2); cx.fill(); return; }
   }
   cx.fill(); cx.stroke();
+  // œil qui suit le joueur : un ennemi se lit comme une créature, pas comme un objet
+  const er = Math.max(3, f.r*.32), ex = f.x+Math.cos(face)*f.r*.25, ey = f.y+Math.sin(face)*f.r*.25;
+  cx.fillStyle = f.poss ? '#ff3d5a' : '#fff6f0'; circle(ex, ey, er); cx.fill();
+  cx.fillStyle = '#07050b'; circle(ex+Math.cos(face)*er*.45, ey+Math.sin(face)*er*.45, er*.55); cx.fill();
   if(f.burn > 0){ cx.fillStyle = '#ff8a3d'; circle(f.x+(Math.random()-.5)*f.r, f.y-f.r*.6+(Math.random()-.5)*f.r, 3); cx.fill(); }
 }
 
